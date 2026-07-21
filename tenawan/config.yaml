@@ -1,0 +1,9 @@
+# 雲ノ平山荘の監視対象日（最大3件まで指定できます）
+# month/day の組み合わせで指定してください
+target_days:
+  - month: 8
+    day: 27
+#  - month: 8
+#    day: 30
+#  - month: 8
+#    day: 31
