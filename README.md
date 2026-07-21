@@ -44,9 +44,9 @@ https://github.com/ で無料登録します。
 3. 「New repository secret」で、以下を1つずつ登録
    | Name | Value |
    |---|---|
-   | `GMAIL_ADDRESS` | `sahashi2@gmail.com` |
+   | `GMAIL_ADDRESS` | `your_address@gmail.com` |
    | `GMAIL_APP_PASSWORD` | Gmailのアプリパスワード（16桁） |
-   | `TO_ADDRESS` | `sahashi2@gmail.com` |
+   | `TO_ADDRESS` | `your_address@gmail.com` |
    | `NTFY_ENABLED` | `true`（使わない場合は `false`） |
    | `NTFY_TOPIC` | 自分だけのntfyトピック名 |
 
