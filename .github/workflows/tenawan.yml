@@ -30,7 +30,7 @@ jobs:
           TO_ADDRESS: ${{ secrets.TO_ADDRESS }}
           NTFY_ENABLED: ${{ secrets.NTFY_ENABLED }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
-        run: python tenawan/watch_vacancy.py --once
+        run: python tenawan/watch_vacancy.py --test-email
 
       - name: 状態ファイルの変更をコミット
         run: |
