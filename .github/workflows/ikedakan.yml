@@ -30,6 +30,8 @@ jobs:
           TO_ADDRESS: ${{ secrets.TO_ADDRESS }}
           NTFY_ENABLED: ${{ secrets.NTFY_ENABLED }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
+          LINE_USER_ID: ${{ secrets.LINE_USER_ID }}
         run: python ikedakan/watch_ikedakan.py --once
 
       - name: 状態ファイルの変更をコミット
