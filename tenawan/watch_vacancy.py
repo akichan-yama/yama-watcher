@@ -1,25 +1,21 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-雲ノ平山荘 空室状況 監視スクリプト（GitHub Actions / LINE通知対応版）
+雲ノ平山荘 空室状況 監視スクリプト（GitHub Actions / Gmail & LINE 並行対応版）
 ============================================================
 
 対象ページ: https://www.tenawan.ne.jp/lodgment/rec/002/076/pcr.asp
 
 【設定方法】
 ・監視したい日付は、同じフォルダの config.yaml で指定します（最大3件）。
-・LINEのアクセストークンやユーザーIDなどの秘密情報は、コードに直接書かず
-  環境変数（ローカルでは .env ファイル、GitHub Actionsでは Secrets）から読み込みます。
+・メールアドレスやLINEトークンなどの秘密情報は、環境変数から読み込みます。
 
 【必要な環境変数 (.env または GitHub Secrets)】
-  LINE_CHANNEL_ACCESS_TOKEN : LINE Developersで取得したチャネルアクセストークン
-  LINE_USER_ID              : 通知を送るLINEのユーザーID
-
-【ローカルでのテスト方法】
-1. ルートフォルダの .env.example を .env にコピーして値を入力
-2. python -m pip install -r ../requirements.txt
-3. python watch_vacancy.py --test-line
-4. python watch_vacancy.py --debug
+  LINE_CHANNEL_ACCESS_TOKEN : LINE Developersのチャネルアクセストークン
+  LINE_USER_ID              : LINEユーザーID
+  GMAIL_ADDRESS             : 送信元Gmailアドレス
+  GMAIL_APP_PASSWORD        : Gmailアプリパスワード
+  TO_ADDRESS                : 通知先メールアドレス
 """
 
 import os
@@ -27,8 +23,10 @@ import re
 import sys
 import time
 import json
+import smtplib
 import logging
 import argparse
+from email.mime.text import MIMEText
 from pathlib import Path
 from datetime import datetime
 
@@ -49,12 +47,20 @@ CONFIG_FILE = SCRIPT_DIR / "config.yaml"
 STATE_FILE = SCRIPT_DIR / "state.json"
 LOG_FILE = SCRIPT_DIR / "watch_vacancy.log"
 
-# .env（ローカル用）を読み込む。無ければ何もしない（GitHub Actionsでは実際のSecretsが使われる）
+# .env（ローカル用）を読み込む
 load_dotenv(SCRIPT_DIR.parent / ".env")
 
+# LINE設定
 LINE_CHANNEL_ACCESS_TOKEN = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN", "")
 LINE_USER_ID = os.environ.get("LINE_USER_ID", "")
 LINE_API_URL = "https://api.line.me/v2/bot/message/push"
+
+# Gmail設定
+GMAIL_ADDRESS = os.environ.get("GMAIL_ADDRESS", "")
+GMAIL_APP_PASSWORD = os.environ.get("GMAIL_APP_PASSWORD", "")
+TO_ADDRESS = os.environ.get("TO_ADDRESS", "")
+SMTP_SERVER = "smtp.gmail.com"
+SMTP_PORT = 587
 
 
 def load_config() -> dict:
@@ -65,16 +71,15 @@ def load_config() -> dict:
 
 
 _config = load_config()
-# target_days: [{month: 8, day: 29}, ...] または [29, 30] のような単純リストにも対応
 _raw_days = _config.get("target_days", [{"month": 8, "day": 29}])
 TARGET_DATES: list[tuple[int, int]] = []
 for item in _raw_days[:3]:  # 最大3件
     if isinstance(item, dict):
         TARGET_DATES.append((int(item.get("month", 8)), int(item["day"])))
     else:
-        TARGET_DATES.append((8, int(item)))  # 単純な数字だけの場合は8月とみなす
+        TARGET_DATES.append((8, int(item)))
 
-# ========================= ここから下は基本的に変更不要 =========================
+# ========================= ログ設定 =========================
 
 handlers = [logging.FileHandler(LOG_FILE, encoding="utf-8")]
 if sys.stdout is not None:
@@ -150,10 +155,48 @@ def _format_lines(available: list[tuple[int, int, str]]) -> str:
     return "\n".join(f"・{_fmt(m, d)}: {s}" for m, d, s in available)
 
 
+# --- Gmail 送信処理 ---
+def send_email(available: list[tuple[int, int, str]]) -> None:
+    if not GMAIL_ADDRESS or not GMAIL_APP_PASSWORD or not TO_ADDRESS:
+        log.warning("Gmail設定が不足しているため、メール送信をスキップします。")
+        return
+    date_names = "、".join(_fmt(m, d) for m, d, _ in available)
+    subject = f"【空室通知】雲ノ平山荘 に空きが出ました（{date_names}）"
+    body = (
+        f"雲ノ平山荘の以下の日程に空きが出ました。\n\n"
+        f"{_format_lines(available)}\n\n"
+        f"予約ページ:\n{TARGET_URL}\n\n"
+        f"通知日時: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+    )
+    msg = MIMEText(body, "plain", "utf-8")
+    msg["Subject"] = subject
+    msg["From"] = GMAIL_ADDRESS
+    msg["To"] = TO_ADDRESS
+    with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+        server.starttls()
+        server.login(GMAIL_ADDRESS, GMAIL_APP_PASSWORD)
+        server.sendmail(GMAIL_ADDRESS, [TO_ADDRESS], msg.as_string())
+    log.info("メール通知を送信しました -> %s", TO_ADDRESS)
+
+
+def send_test_email() -> None:
+    subject = "【テスト】雲ノ平山荘 空室監視スクリプト"
+    body = f"テストメールです。送信日時: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+    msg = MIMEText(body, "plain", "utf-8")
+    msg["Subject"] = subject
+    msg["From"] = GMAIL_ADDRESS
+    msg["To"] = TO_ADDRESS
+    with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+        server.starttls()
+        server.login(GMAIL_ADDRESS, GMAIL_APP_PASSWORD)
+        server.sendmail(GMAIL_ADDRESS, [TO_ADDRESS], msg.as_string())
+    log.info("テストメール送信に成功しました -> %s", TO_ADDRESS)
+
+
+# --- LINE 送信処理 ---
 def send_line_notification(text_message: str) -> None:
-    """LINE Messaging API を使用してプッシュメッセージを送信"""
     if not LINE_CHANNEL_ACCESS_TOKEN or not LINE_USER_ID:
-        log.error("LINE_CHANNEL_ACCESS_TOKEN または LINE_USER_ID が設定されていません。")
+        log.warning("LINE設定が不足しているため、LINE通知をスキップします。")
         return
 
     headers = {
@@ -162,12 +205,7 @@ def send_line_notification(text_message: str) -> None:
     }
     payload = {
         "to": LINE_USER_ID,
-        "messages": [
-            {
-                "type": "text",
-                "text": text_message,
-            }
-        ],
+        "messages": [{"type": "text", "text": text_message}],
     }
 
     resp = requests.post(LINE_API_URL, headers=headers, json=payload, timeout=15)
@@ -191,6 +229,7 @@ def send_test_line() -> None:
     send_line_notification(message)
 
 
+# --- メイン監視処理 ---
 def check_once(debug: bool = False) -> None:
     log.info("チェック開始: %s (対象日: %s)", TARGET_URL, ", ".join(_fmt(m, d) for m, d in TARGET_DATES))
     try:
@@ -233,12 +272,26 @@ def check_once(debug: bool = False) -> None:
         d_state["last_status"] = status
 
     if newly_available:
+        notified_ok = False
+        
+        # Gmailで通知
+        try:
+            send_email(newly_available)
+            notified_ok = True
+        except Exception as e:
+            log.error("メール送信に失敗しました: %s", e)
+
+        # LINEで通知
         try:
             send_line_vacancy(newly_available)
-            for month, day, status in newly_available:
-                dates_state[_fmt(month, day)]["notified_for_status"] = status
+            notified_ok = True
         except Exception as e:
             log.error("LINE通知の送信に失敗しました: %s", e)
+
+        # どちらか一方でも成功していれば「通知済み」状態を更新
+        if notified_ok:
+            for month, day, status in newly_available:
+                dates_state[_fmt(month, day)]["notified_for_status"] = status
 
     state["last_checked"] = datetime.now().isoformat()
     save_state(state)
@@ -248,6 +301,7 @@ def main():
     parser = argparse.ArgumentParser(description="雲ノ平山荘 空室監視スクリプト")
     parser.add_argument("--debug", action="store_true")
     parser.add_argument("--once", action="store_true")
+    parser.add_argument("--test-email", action="store_true")
     parser.add_argument("--test-line", action="store_true")
     args = parser.parse_args()
 
@@ -256,6 +310,13 @@ def main():
             send_test_line()
         except Exception as e:
             log.error("LINEテスト通知の送信に失敗しました: %s", e)
+        return
+
+    if args.test_email:
+        try:
+            send_test_email()
+        except Exception as e:
+            log.error("テストメール送信に失敗しました: %s", e)
         return
 
     if args.debug:
