@@ -55,6 +55,10 @@ NTFY_SERVER = "https://ntfy.sh"
 SMTP_SERVER = "smtp.gmail.com"
 SMTP_PORT = 587
 
+# LINE Messaging API 設定
+LINE_CHANNEL_ACCESS_TOKEN = os.environ.get("LINE_CHANNEL_ACCESS_TOKEN", "")
+LINE_USER_ID = os.environ.get("LINE_USER_ID", "")
+
 
 def load_config() -> dict:
     if CONFIG_FILE.exists():
@@ -271,6 +275,57 @@ def send_test_ntfy() -> None:
     log.info("ntfyテスト通知の送信に成功しました。")
 
 
+def send_line(available: list[tuple[int, int, str, int]]) -> None:
+    """LINE Messaging API経由で空室通知を送信"""
+    if not LINE_CHANNEL_ACCESS_TOKEN or not LINE_USER_ID:
+        log.warning("LINEの設定情報（TOKEN / USER_ID）が見つからないためスキップします。")
+        return
+
+    summary = "、".join(f"{_fmt(m, d)}({room})" for m, d, room, _ in available)
+    message_text = (
+        f"【空室通知】池田館に空きが出ました！\n"
+        f"対象: {summary}\n\n"
+        f"{_format_lines(available)}\n\n"
+        f"▼ 予約ページ\nhttps://www.yamatan.net/hut/ikedakan/plan"
+    )
+
+    url = "https://api.line.me/v2/bot/message/push"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {LINE_CHANNEL_ACCESS_TOKEN}",
+    }
+    payload = {
+        "to": LINE_USER_ID,
+        "messages": [{"type": "text", "text": message_text}],
+    }
+
+    resp = requests.post(url, json=payload, headers=headers, timeout=15)
+    resp.raise_for_status()
+    log.info("LINE通知を送信しました。")
+
+
+def send_test_line() -> None:
+    """LINE送信用テスト"""
+    if not LINE_CHANNEL_ACCESS_TOKEN or not LINE_USER_ID:
+        log.error("LINE_CHANNEL_ACCESS_TOKEN または LINE_USER_ID が未設定です。")
+        return
+
+    message_text = f"【テスト】池田館 空室監視スクリプト\n送信日時: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+    url = "https://api.line.me/v2/bot/message/push"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {LINE_CHANNEL_ACCESS_TOKEN}",
+    }
+    payload = {
+        "to": LINE_USER_ID,
+        "messages": [{"type": "text", "text": message_text}],
+    }
+
+    resp = requests.post(url, json=payload, headers=headers, timeout=15)
+    resp.raise_for_status()
+    log.info("LINEテスト通知の送信に成功しました。")
+
+
 def check_once(debug: bool = False) -> None:
     log.info("チェック開始 (対象: %s)", ", ".join(_fmt(m, d) for m, d in TARGET_DATES))
     try:
@@ -333,6 +388,12 @@ def check_once(debug: bool = False) -> None:
             notified_ok = True
         except Exception as e:
             log.error("ntfy通知の送信に失敗しました: %s", e)
+        try:
+            send_line(newly_available)
+            notified_ok = True
+        except Exception as e:
+            log.error("LINE通知の送信に失敗しました: %s", e)
+
         if notified_ok:
             for month, day, room_name, avail_num in newly_available:
                 cells_state[f"{month}-{day}_{room_name}"]["notified_for_avail"] = avail_num
@@ -347,7 +408,15 @@ def main():
     parser.add_argument("--once", action="store_true")
     parser.add_argument("--test-email", action="store_true")
     parser.add_argument("--test-ntfy", action="store_true")
+    parser.add_argument("--test-line", action="store_true")
     args = parser.parse_args()
+
+    if args.test_line:
+        try:
+            send_test_line()
+        except Exception as e:
+            log.error("LINEテスト通知の送信に失敗しました: %s", e)
+        return
 
     if args.test_ntfy:
         try:
