@@ -23,8 +23,8 @@
       "notified_for_avail": 1
     },
     "9-4_2人部屋": {
-      "last_avail": 10,
-      "notified_for_avail": 10
+      "last_avail": 9,
+      "notified_for_avail": 9
     },
     "9-4_3人部屋": {
       "last_avail": 0
@@ -40,5 +40,5 @@
       "last_avail": 0
     }
   },
-  "last_checked": "2026-08-05T08:02:54.310130"
+  "last_checked": "2026-08-05T15:51:23.782569"
 }
