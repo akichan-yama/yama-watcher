@@ -1,8 +1,7 @@
 {
   "cells": {
     "8-16_大部屋": {
-      "last_avail": 2,
-      "notified_for_avail": 2
+      "last_avail": 0
     },
     "8-16_2人部屋": {
       "last_avail": 0
@@ -24,8 +23,8 @@
       "notified_for_avail": 1
     },
     "9-4_2人部屋": {
-      "last_avail": 9,
-      "notified_for_avail": 9
+      "last_avail": 8,
+      "notified_for_avail": 8
     },
     "9-4_3人部屋": {
       "last_avail": 0
@@ -41,5 +40,5 @@
       "last_avail": 0
     }
   },
-  "last_checked": "2026-08-06T00:14:46.215703"
+  "last_checked": "2026-08-06T10:17:13.158873"
 }
