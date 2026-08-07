@@ -10,7 +10,8 @@
       "last_avail": 0
     },
     "8-17_大部屋": {
-      "last_avail": 0
+      "last_avail": 1,
+      "notified_for_avail": 1
     },
     "8-17_2人部屋": {
       "last_avail": 0
@@ -19,12 +20,11 @@
       "last_avail": 0
     },
     "9-4_大部屋": {
-      "last_avail": 1,
-      "notified_for_avail": 1
+      "last_avail": 0
     },
     "9-4_2人部屋": {
-      "last_avail": 8,
-      "notified_for_avail": 8
+      "last_avail": 4,
+      "notified_for_avail": 4
     },
     "9-4_3人部屋": {
       "last_avail": 0
@@ -40,5 +40,5 @@
       "last_avail": 0
     }
   },
-  "last_checked": "2026-08-06T10:17:13.158873"
+  "last_checked": "2026-08-07T06:17:14.780151"
 }
