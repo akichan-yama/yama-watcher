@@ -10,8 +10,7 @@
       "last_avail": 0
     },
     "8-17_大部屋": {
-      "last_avail": 1,
-      "notified_for_avail": 1
+      "last_avail": 0
     },
     "8-17_2人部屋": {
       "last_avail": 0
@@ -40,5 +39,5 @@
       "last_avail": 0
     }
   },
-  "last_checked": "2026-08-08T06:25:07.854649"
+  "last_checked": "2026-08-08T09:21:47.305379"
 }
