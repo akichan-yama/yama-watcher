@@ -1,8 +1,9 @@
 {
   "dates": {
     "8/27": {
-      "last_status": "×"
+      "last_status": "△",
+      "notified_for_status": "△"
     }
   },
-  "last_checked": "2026-08-09T00:00:59.496529"
+  "last_checked": "2026-08-09T04:50:59.221588"
 }
